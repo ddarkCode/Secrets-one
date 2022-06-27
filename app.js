@@ -2,10 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const ejs = require('ejs');
 const { Schema, model, connect } = require('mongoose');
+const encrypt = require('mongoose-encryption');
 
 const app = express();
 
-const { PORT, MONGO_URL } = process.env;
+const { PORT, MONGO_URL, SECRET } = process.env;
 
 connect(MONGO_URL, (err) => {
   if (err) {
@@ -23,6 +24,9 @@ const userSchema = new Schema({
   email: String,
   password: String,
 });
+
+userSchema.plugin(encrypt, { secret: SECRET, encryptedFields: ['password'] });
+
 const User = model('User', userSchema);
 
 app.get('/', (req, res) => {
