@@ -3,6 +3,7 @@ const express = require('express');
 const ejs = require('ejs');
 const { Schema, model, connect } = require('mongoose');
 const encrypt = require('mongoose-encryption');
+const md5 = require('md5');
 
 const app = express();
 
@@ -25,7 +26,7 @@ const userSchema = new Schema({
   password: String,
 });
 
-userSchema.plugin(encrypt, { secret: SECRET, encryptedFields: ['password'] });
+// userSchema.plugin(encrypt, { secret: SECRET, encryptedFields: ['password'] });
 
 const User = model('User', userSchema);
 
@@ -42,7 +43,7 @@ app
     const { username, password } = req.body;
     const newUser = new User({
       email: username,
-      password,
+      password: md5(password),
     });
     newUser.save((err, savedUser) => {
       if (err) {
@@ -68,7 +69,7 @@ app
         if (!foundUser) {
           return res.redirect('login');
         } else {
-          if (foundUser.password === password) {
+          if (foundUser.password === md5(password)) {
             return res.render('secrets');
           } else {
             return res.json({ message: 'Password do not match.' });
