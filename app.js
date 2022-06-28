@@ -2,12 +2,12 @@ require('dotenv').config();
 const express = require('express');
 const ejs = require('ejs');
 const { Schema, model, connect } = require('mongoose');
-const encrypt = require('mongoose-encryption');
-const md5 = require('md5');
+// const encrypt = require('mongoose-encryption');
+// const md5 = require('md5');
+const bcrypt = require('bcrypt');
 
 const app = express();
-
-const { PORT, MONGO_URL, SECRET } = process.env;
+const { PORT, MONGO_URL, SECRET, SALT_ROUNDS } = process.env;
 
 connect(MONGO_URL, (err) => {
   if (err) {
@@ -41,15 +41,22 @@ app
   })
   .post((req, res) => {
     const { username, password } = req.body;
-    const newUser = new User({
-      email: username,
-      password: md5(password),
-    });
-    newUser.save((err, savedUser) => {
+
+    bcrypt.hash(password, +SALT_ROUNDS, function (err, hash) {
       if (err) {
         console.log(err);
       } else {
-        res.render('secrets');
+        const newUser = new User({
+          email: username,
+          password: hash,
+        });
+        newUser.save((err, savedUser) => {
+          if (err) {
+            console.log(err);
+          } else {
+            res.render('secrets');
+          }
+        });
       }
     });
   });
@@ -69,11 +76,14 @@ app
         if (!foundUser) {
           return res.redirect('login');
         } else {
-          if (foundUser.password === md5(password)) {
-            return res.render('secrets');
-          } else {
-            return res.json({ message: 'Password do not match.' });
-          }
+          bcrypt.compare(password, foundUser.password, function (err, result) {
+            // result == true
+            if (result) {
+              return res.render('secrets');
+            } else {
+              return res.json({ message: 'Password do not match.' });
+            }
+          });
         }
       }
     });
