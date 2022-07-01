@@ -51,6 +51,7 @@ const userSchema = new Schema({
     type: String,
     default: '',
   },
+  secrets: [String],
 });
 
 // userSchema.plugin(encrypt, { secret: SECRET, encryptedFields: ['password'] });
@@ -84,7 +85,7 @@ passport.use(
       callbackURL: 'http://localhost:3000/auth/google/secrets',
     },
     function (accessToken, refreshToken, profile, cb) {
-      console.log('Google Profile: ', profile);
+      // console.log('Google Profile: ', profile);
       User.findOrCreate({ googleId: profile.id }, function (err, user) {
         return cb(err, user);
       });
@@ -101,7 +102,7 @@ app.get(
   '/auth/google/secrets',
   passport.authenticate('google', { failureRedirect: '/login' }),
   function (req, res) {
-    // Successful authentication, redirect home.
+    // Successful authentication, redirect secrets.
     res.redirect('/secrets');
   }
 );
@@ -112,11 +113,51 @@ app.get('/', (req, res) => {
 
 app.get('/secrets', (req, res) => {
   if (req.isAuthenticated()) {
-    res.render('secrets');
+    User.find({}, (err, foundUsers) => {
+      if (err) {
+        console.log(err);
+      } else {
+        let allSecrets = [];
+        foundUsers.forEach((secret) => {
+          allSecrets = allSecrets.concat(secret.secrets);
+        });
+        res.render('secrets', { secrets: allSecrets });
+      }
+    });
   } else {
     res.redirect('/login');
   }
 });
+
+app
+  .route('/submit')
+  .get((req, res) => {
+    if (req.isAuthenticated()) {
+      res.render('submit');
+    } else {
+      res.redirect('/login');
+    }
+  })
+  .post((req, res) => {
+    const { secret } = req.body;
+    User.findById(req.user.id, (err, foundUser) => {
+      if (err) {
+        console.log(err);
+        res.redirect('/login');
+      } else if (!foundUser) {
+        res.redirect('/login');
+      } else {
+        foundUser.secrets.push(secret);
+        foundUser.save((err) => {
+          if (err) {
+            console.log(err);
+          } else {
+            res.redirect('/secrets');
+          }
+        });
+      }
+    });
+  });
 
 app
   .route('/register')
